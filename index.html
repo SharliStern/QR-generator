@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QR → DXF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Secular+One&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+:root{
+  --bg:#E6EDF5; --surface:#F6F9FD; --ink:#14213D; --muted:#4F5F7A;
+  --line:#C3D0E2; --accent:#1F4E8C; --accent-ink:#F6F9FD; --laser:#D7263D;
+  --preview-bg:#D5E2F2; --module:#14213D; --focus:#1F4E8C;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1626; --surface:#16213A; --ink:#E4ECF7; --muted:#93A3BD;
+    --line:#2A3A58; --accent:#6FA3E8; --accent-ink:#0B1220; --laser:#FF5A6E;
+    --preview-bg:#C9D8EC; --module:#14213D; --focus:#8DB8F0;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1626; --surface:#16213A; --ink:#E4ECF7; --muted:#93A3BD;
+  --line:#2A3A58; --accent:#6FA3E8; --accent-ink:#0B1220; --laser:#FF5A6E;
+  --preview-bg:#C9D8EC; --module:#14213D; --focus:#8DB8F0;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;font-size:17px;line-height:1.5}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 20px 32px}
+.topbar{display:flex;justify-content:flex-end;margin-bottom:8px}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.lang button{font:inherit;font-weight:700;font-size:14px;border:0;background:transparent;color:var(--muted);padding:5px 14px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+header{margin-bottom:24px}
+h1{font-family:"Secular One","Assistant",system-ui,sans-serif;font-weight:400;
+  font-size:clamp(30px,5vw,44px);line-height:1.1;margin:0 0 6px;letter-spacing:-.5px}
+header p{margin:0;color:var(--muted);max-width:60ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.tab{font:inherit;font-weight:600;border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:999px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+label{display:block;font-weight:600;font-size:15px;margin:12px 0 4px}
+input[type=text],input[type=number],input[type=email],input[type=tel],input[type=url],textarea,select{
+  width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+textarea{min-height:110px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check{display:flex;gap:8px;align-items:center;font-weight:400;margin-top:12px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;color:var(--muted)}
+.drop.over{border-color:var(--accent);color:var(--ink)}
+.drop strong{display:block;color:var(--ink);font-size:18px;margin-bottom:4px}
+.hidden{display:none!important}
+.settings{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.settings h2,.out h2{font-size:18px;margin:0 0 4px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;font:inherit;border:0;background:var(--bg);color:var(--ink);padding:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.stage{background:var(--preview-bg);border-radius:10px;padding:14px;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center}
+.stage svg{width:100%;height:100%;display:block}
+.stats{display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 0 4px;color:var(--muted);font-size:15px}
+.stats b{color:var(--ink)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.formats{border:1px solid var(--line);border-radius:10px;padding:8px 14px 10px;margin:14px 0 0}
+.formats legend{font-weight:700;font-size:15px;padding:0 6px}
+.radio{display:flex;gap:10px;align-items:flex-start;font-weight:400;margin:8px 0 0;cursor:pointer}
+.radio input{accent-color:var(--accent);width:18px;height:18px;margin-top:3px;flex:none}
+.radio small{display:block;color:var(--muted);font-size:14px;line-height:1.35}
+.btn{font:inherit;font-weight:700;border-radius:10px;padding:11px 18px;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.msg{min-height:1.5em;margin-top:10px;font-size:15px}
+.msg.err{color:var(--laser)}
+.empty{color:#3E4E68;text-align:center;padding:20px}
+.note{font-size:14px;color:var(--muted);margin-top:8px}
+footer{margin-top:32px;padding-top:14px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;color:var(--muted);font-size:14px}
+footer .by{font-weight:700;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="he" aria-pressed="true">עב</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+  <header>
+    <h1 data-i="title"></h1>
+    <p data-i="intro"></p>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-tab="text" data-i="tabText"></button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="wifi">Wi‑Fi</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="contact" data-i="tabContact"></button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="image" data-i="tabImage"></button>
+      </div>
+
+      <div data-pane="text">
+        <label for="txt" data-i="txtLabel"></label>
+        <textarea id="txt" dir="auto" data-ph="txtPh"></textarea>
+        <p class="note" id="decodedNote"></p>
+      </div>
+
+      <div data-pane="wifi" class="hidden">
+        <label for="ssid" data-i="ssid"></label>
+        <input type="text" id="ssid" dir="auto">
+        <label for="wpass" data-i="wpass"></label>
+        <input type="text" id="wpass" dir="ltr">
+        <label for="wsec" data-i="wsec"></label>
+        <select id="wsec"><option value="WPA">WPA / WPA2 / WPA3</option><option value="WEP">WEP</option><option value="nopass" data-i="nopass"></option></select>
+        <label class="check"><input type="checkbox" id="whidden"> <span data-i="whidden"></span></label>
+      </div>
+
+      <div data-pane="contact" class="hidden">
+        <div class="row">
+          <div><label for="cfirst" data-i="cfirst"></label><input type="text" id="cfirst" dir="auto"></div>
+          <div><label for="clast" data-i="clast"></label><input type="text" id="clast" dir="auto"></div>
+        </div>
+        <label for="ctel" data-i="ctel"></label><input type="tel" id="ctel" dir="ltr">
+        <label for="cmail" data-i="cmail"></label><input type="email" id="cmail" dir="ltr">
+        <label for="corg" data-i="corg"></label><input type="text" id="corg" dir="auto">
+        <label for="curl" data-i="curl"></label><input type="url" id="curl" dir="ltr">
+      </div>
+
+      <div data-pane="image" class="hidden">
+        <div class="drop" id="drop" tabindex="0" role="button">
+          <strong data-i="dropTitle"></strong>
+          <span data-i="dropSub"></span>
+        </div>
+        <input type="file" id="file" accept="image/*" class="hidden">
+        <p class="msg" id="imgMsg" aria-live="polite"></p>
+      </div>
+
+      <div class="settings">
+        <h2 data-i="settings"></h2>
+        <div class="row">
+          <div><label for="size" data-i="size"></label><input type="number" id="size" value="50" min="5" step="1"></div>
+          <div><label for="margin" data-i="margin"></label><input type="number" id="margin" value="2" min="0" max="10" step="1"></div>
+        </div>
+        <label for="ecl" data-i="ecl"></label>
+        <select id="ecl">
+          <option value="L" data-i="eclL"></option>
+          <option value="M" selected data-i="eclM"></option>
+          <option value="Q" data-i="eclQ"></option>
+          <option value="H" data-i="eclH"></option>
+        </select>
+        <label data-i="geom"></label>
+        <div class="seg" role="group">
+          <button type="button" data-mode="fill" aria-pressed="true" data-i="modeFill"></button>
+          <button type="button" data-mode="outline" aria-pressed="false" data-i="modeOutline"></button>
+        </div>
+        <label class="check"><input type="checkbox" id="frame"> <span data-i="frame"></span></label>
+        <label class="check"><input type="checkbox" id="invert"> <span data-i="invert"></span></label>
+      </div>
+    </section>
+
+    <section class="panel out">
+      <h2 data-i="preview"></h2>
+      <div class="stage" id="stage"></div>
+      <div class="stats" id="stats"></div>
+      <fieldset class="formats">
+        <legend data-i="fmtLegend"></legend>
+        <label class="radio"><input type="radio" name="fmt" value="contour" checked> <span><b data-i="fmtContourT"></b> <small data-i="fmtContour"></small></span></label>
+        <label class="radio"><input type="radio" name="fmt" value="dxf"> <span><b>DXF</b> <small data-i="fmtDxf"></small></span></label>
+        <label class="radio"><input type="radio" name="fmt" value="png"> <span><b data-i="fmtPngT"></b> <small data-i="fmtPng"></small></span></label>
+        <label class="radio"><input type="radio" name="fmt" value="svg"> <span><b>SVG</b> <small data-i="fmtSvg"></small></span></label>
+      </fieldset>
+      <div class="actions">
+        <button class="btn" id="dlBtn" disabled data-i="download"></button>
+        <button class="btn ghost" id="copyDxf" disabled data-i="copyDxf"></button>
+      </div>
+      <p class="msg" id="msg" aria-live="polite"></p>
+      <p class="note hidden" id="zipNote" data-i="zipNote"></p>
+    </section>
+  </div>
+
+  <footer>
+    <span><span data-i="version"></span> <span dir="ltr">08.10.2026</span></span>
+    <span class="by" dir="ltr">By Sharli Ofer</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  let tab = 'text', mode = 'fill', current = null, lang = 'he';
+
+  const T = {
+    he:{
+      title:'QR לחיתוך ולחריטה',
+      intro:'הקלידו פרטים או העלו תמונה של QR קיים, קבעו גודל במילימטרים והורידו קובץ DXF מוכן ללייזר, CNC או CAD.',
+      tabText:'טקסט או קישור', tabContact:'איש קשר', tabImage:'מתמונה',
+      txtLabel:'מה הקוד יכיל', txtPh:'https://example.com או כל טקסט',
+      ssid:'שם הרשת', wpass:'סיסמה', wsec:'אבטחה', nopass:'ללא סיסמה', whidden:'רשת מוסתרת',
+      cfirst:'שם פרטי', clast:'שם משפחה', ctel:'טלפון', cmail:'אימייל', corg:'חברה', curl:'אתר',
+      dropTitle:'גררו לכאן תמונה של QR', dropSub:'או לחצו לבחירת קובץ. אפשר גם להדביק תמונה עם Ctrl+V.',
+      settings:'הגדרות הקובץ', size:'גודל כולל (מ״מ)', margin:'שוליים (מודולים)', ecl:'רמת תיקון שגיאות',
+      eclL:'נמוכה (L, 7%)', eclM:'בינונית (M, 15%)', eclQ:'גבוהה (Q, 25%)', eclH:'מקסימלית (H, 30%)',
+      geom:'סוג גאומטריה', modeFill:'מילוי (SOLID)', modeOutline:'קווי מתאר',
+      frame:'הוספת מסגרת חיצונית בשכבה נפרדת', invert:'היפוך (חיתוך הרקע במקום הריבועים)',
+      preview:'תצוגה מקדימה', fmtLegend:'בחרו סוג קובץ', fmtDxf:'לפי סוג הגאומטריה שנבחר בהגדרות', fmtContourT:'DXF קונטור', fmtContour:'מילוי SOLID וקו מתאר סגור סביב כל אזור שחור, בשכבות נפרדות', fmtPngT:'תמונה (PNG)', fmtPng:'שחור על לבן ב־300 DPI, לסריקה והדפסה', fmtSvg:'קובץ וקטורי לתוכנות עיצוב', download:'הורדה', copyDxf:'העתקת קוד DXF',
+      zipNote:'בתוך Claude קובץ ה־DXF יורד בתוך ZIP. פתחו אותו וקובץ qr-code.dxf נמצא בפנים.',
+      version:'גרסה:',
+      empty:'הקלידו תוכן כדי ליצור קוד',
+      libErr:'ספריית ה־QR לא נטענה. בדקו את החיבור לאינטרנט ורעננו את הדף.',
+      tooLong:'התוכן ארוך מדי לקוד QR. קצרו אותו או בחרו רמת תיקון שגיאות נמוכה יותר.',
+      stSize:'גודל', stMod:'מודול', stMatrix:'מטריצה', stShapes:'צורות', mm:'מ״מ',
+      small:'שימו לב: מודול קטן מחצי מילימטר עלול להיות קשה לחיתוך ולסריקה. הגדילו את הקוד או קצרו את התוכן.',
+      downloaded:n=>'הקובץ '+n+' הורד.', saved:n=>'הקובץ '+n+' נשמר.',
+      declined:'ההורדה בוטלה.', rate:'חלון שמירה כבר פתוח. סיימו אותו ונסו שוב.',
+      noSave:'אי אפשר לשמור קבצים בתצוגה הזו. השתמשו בכפתור "העתקת קוד DXF" והדביקו לקובץ טקסט בשם qr-code.dxf.',
+      pngErr:'יצירת התמונה נכשלה. נסו גודל קטן יותר.',
+      copied:'קוד ה־DXF הועתק. הדביקו אותו לקובץ טקסט ושמרו כ־qr-code.dxf.', copyBlocked:'הדפדפן חסם את ההעתקה.',
+      reading:'קורא את התמונה...', scanLib:'ספריית הסריקה לא נטענה. רעננו את הדף.',
+      notFound:'לא נמצא קוד QR בתמונה. נסו תמונה חדה יותר, ישרה, שבה הקוד ממלא את רוב המסגרת.',
+      decoded:'התוכן נקרא מהתמונה. אפשר לערוך אותו לפני ההורדה.',
+      badImg:'הקובץ אינו תמונה שהדפדפן יכול לפתוח. נסו PNG או JPG.'
+    },
+    en:{
+      title:'QR for cutting and engraving',
+      intro:'Type your details or upload a picture of an existing QR code, set the size in millimeters, and download a DXF ready for laser, CNC or CAD.',
+      tabText:'Text or link', tabContact:'Contact', tabImage:'From image',
+      txtLabel:'What the code will contain', txtPh:'https://example.com or any text',
+      ssid:'Network name', wpass:'Password', wsec:'Security', nopass:'No password', whidden:'Hidden network',
+      cfirst:'First name', clast:'Last name', ctel:'Phone', cmail:'Email', corg:'Company', curl:'Website',
+      dropTitle:'Drop a QR code image here', dropSub:'or click to choose a file. You can also paste an image with Ctrl+V.',
+      settings:'File settings', size:'Total size (mm)', margin:'Margin (modules)', ecl:'Error correction',
+      eclL:'Low (L, 7%)', eclM:'Medium (M, 15%)', eclQ:'High (Q, 25%)', eclH:'Maximum (H, 30%)',
+      geom:'Geometry', modeFill:'Fill (SOLID)', modeOutline:'Outlines',
+      frame:'Add an outer frame on a separate layer', invert:'Invert (cut the background instead of the squares)',
+      preview:'Preview', fmtLegend:'Choose a file type', fmtDxf:'Uses the geometry type chosen in settings', fmtContourT:'DXF contour', fmtContour:'SOLID fill plus a closed outline around each black area, on separate layers', fmtPngT:'Image (PNG)', fmtPng:'Black on white at 300 DPI, for scanning and printing', fmtSvg:'Vector file for design software', download:'Download', copyDxf:'Copy DXF code',
+      zipNote:'Inside Claude the DXF downloads inside a ZIP. Open it and qr-code.dxf is inside.',
+      version:'Version:',
+      empty:'Type some content to create a code',
+      libErr:'The QR library did not load. Check your internet connection and reload the page.',
+      tooLong:'The content is too long for a QR code. Shorten it or choose a lower error correction level.',
+      stSize:'Size', stMod:'Module', stMatrix:'Matrix', stShapes:'Shapes', mm:'mm',
+      small:'Note: modules smaller than half a millimeter may be hard to cut and scan. Make the code bigger or shorten the content.',
+      downloaded:n=>n+' downloaded.', saved:n=>n+' saved.',
+      declined:'Download canceled.', rate:'A save window is already open. Finish it and try again.',
+      noSave:'Files can\'t be saved in this view. Use "Copy DXF code" and paste it into a text file named qr-code.dxf.',
+      pngErr:'Creating the image failed. Try a smaller size.',
+      copied:'DXF code copied. Paste it into a text file and save it as qr-code.dxf.', copyBlocked:'The browser blocked copying.',
+      reading:'Reading the image...', scanLib:'The scanning library did not load. Reload the page.',
+      notFound:'No QR code found in the image. Try a sharper, straight photo where the code fills most of the frame.',
+      decoded:'Content read from the image. You can edit it before downloading.',
+      badImg:'The browser can\'t open this file as an image. Try PNG or JPG.'
+    }
+  };
+  const t = k => T[lang][k];
+
+  function applyLang(l){
+    lang = l;
+    document.documentElement.lang = l;
+    document.documentElement.dir = l === 'he' ? 'rtl' : 'ltr';
+    document.title = l === 'he' ? 'מחולל QR ל־DXF' : 'QR to DXF generator';
+    document.querySelectorAll('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
+    document.querySelectorAll('[data-ph]').forEach(el => el.placeholder = t(el.dataset.ph));
+    document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === l));
+    $('drop').setAttribute('aria-label', t('dropTitle'));
+    if ($('decodedNote').textContent) $('decodedNote').textContent = t('decoded');
+    $('imgMsg').textContent = '';
+    try { localStorage.setItem('qrdxf-lang', l); } catch {}
+    render();
+  }
+  document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => applyLang(b.dataset.lang)));
+
+  // ---------- downloads ----------
+  const hasClaude = !!(window.claude && typeof window.claude.use === 'function');
+  const dlPromise = hasClaude ? window.claude.use('downloads').catch(()=>null) : Promise.resolve(null);
+  if (hasClaude) $('zipNote').classList.remove('hidden');
+
+  // ---------- tabs ----------
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  function setTab(x){
+    tab = x;
+    document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === x));
+    document.querySelectorAll('[data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== x));
+    render();
+  }
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+    mode = b.dataset.mode;
+    document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    render();
+  }));
+  document.querySelectorAll('input,textarea,select').forEach(el => { if (el.id !== 'file') el.addEventListener('input', render); });
+
+  // ---------- payload ----------
+  const wEsc = s => s.replace(/([\\;,:"])/g, '\\$1');
+  const vEsc = s => s.replace(/([\\;,])/g, '\\$1');
+  function payload(){
+    if (tab === 'text' || tab === 'image') return $('txt').value;
+    if (tab === 'wifi'){
+      const ssid = $('ssid').value; if (!ssid) return '';
+      const sec = $('wsec').value;
+      let s = 'WIFI:T:' + sec + ';S:' + wEsc(ssid) + ';';
+      if (sec !== 'nopass') s += 'P:' + wEsc($('wpass').value) + ';';
+      if ($('whidden').checked) s += 'H:true;';
+      return s + ';';
+    }
+    if (tab === 'contact'){
+      const f = $('cfirst').value.trim(), l = $('clast').value.trim();
+      const tel = $('ctel').value.trim(), mail = $('cmail').value.trim();
+      const org = $('corg').value.trim(), url = $('curl').value.trim();
+      if (!f && !l && !tel && !mail) return '';
+      const lines = ['BEGIN:VCARD','VERSION:3.0','N:' + vEsc(l) + ';' + vEsc(f) + ';;;','FN:' + vEsc((f + ' ' + l).trim())];
+      if (org) lines.push('ORG:' + vEsc(org));
+      if (tel) lines.push('TEL;TYPE=CELL:' + tel);
+      if (mail) lines.push('EMAIL:' + mail);
+      if (url) lines.push('URL:' + url);
+      lines.push('END:VCARD');
+      return lines.join('\n');
+    }
+    return '';
+  }
+
+  // ---------- QR ----------
+  function makeMatrix(text, ecl){
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+    const qr = qrcode(0, ecl);
+    qr.addData(text, 'Byte');
+    qr.make();
+    const n = qr.getModuleCount(), m = [];
+    for (let r = 0; r < n; r++){ const row = []; for (let c = 0; c < n; c++) row.push(qr.isDark(r, c)); m.push(row); }
+    return m;
+  }
+  function rects(grid){
+    const out = [], open = new Map();
+    for (let r = 0; r < grid.length; r++){
+      const runs = []; let c = 0;
+      while (c < grid[r].length){
+        if (grid[r][c]){ const s = c; while (c < grid[r].length && grid[r][c]) c++; runs.push([s, c - s]); }
+        else c++;
+      }
+      const next = new Map();
+      for (const [s, len] of runs){
+        const key = s + ',' + len;
+        if (open.has(key)){ const R = open.get(key); R.h++; next.set(key, R); open.delete(key); }
+        else { const R = {x:s, y:r, w:len, h:1}; out.push(R); next.set(key, R); }
+      }
+      open.clear(); next.forEach((v,k) => open.set(k, v));
+    }
+    return out;
+  }
+  function build(){
+    const text = payload();
+    if (!text) return null;
+    const margin = Math.max(0, Math.min(10, parseInt($('margin').value || '0', 10)));
+    const size = Math.max(1, parseFloat($('size').value) || 50);
+    const matrix = makeMatrix(text, $('ecl').value);
+    const n = matrix.length, Tt = n + 2 * margin;
+    let grid = [];
+    for (let r = 0; r < Tt; r++){
+      const row = [];
+      for (let c = 0; c < Tt; c++){
+        const rr = r - margin, cc = c - margin;
+        row.push(rr >= 0 && cc >= 0 && rr < n && cc < n ? matrix[rr][cc] : false);
+      }
+      grid.push(row);
+    }
+    if ($('invert').checked) grid = grid.map(row => row.map(v => !v));
+    return { text, n, T: Tt, size, mod: size / Tt, rects: rects(grid), grid, frame: $('frame').checked, mode };
+  }
+
+  // ---------- DXF ----------
+  function dxf(q, contour){
+    const f = v => (Math.round(v * 10000) / 10000).toString();
+    const L = [];
+    const p = (code, val) => { L.push(String(code)); L.push(String(val)); };
+    p(0,'SECTION'); p(2,'HEADER'); p(9,'$ACADVER'); p(1,'AC1009'); p(9,'$INSUNITS'); p(70,4);
+    p(9,'$EXTMIN'); p(10,0); p(20,0); p(30,0); p(9,'$EXTMAX'); p(10,f(q.size)); p(20,f(q.size)); p(30,0);
+    p(0,'ENDSEC');
+    p(0,'SECTION'); p(2,'TABLES'); p(0,'TABLE'); p(2,'LAYER'); p(70,4);
+    p(0,'LAYER'); p(2,'QR'); p(70,0); p(62,7); p(6,'CONTINUOUS');
+    p(0,'LAYER'); p(2,'QR_FILL'); p(70,0); p(62,7); p(6,'CONTINUOUS');
+    p(0,'LAYER'); p(2,'QR_CONTOUR'); p(70,0); p(62,1); p(6,'CONTINUOUS');
+    p(0,'LAYER'); p(2,'FRAME'); p(70,0); p(62,5); p(6,'CONTINUOUS');
+    p(0,'ENDTAB'); p(0,'ENDSEC');
+    p(0,'SECTION'); p(2,'ENTITIES');
+    const poly = (layer, x0, y0, x1, y1) => {
+      p(0,'POLYLINE'); p(8,layer); p(66,1); p(10,0); p(20,0); p(30,0); p(70,1);
+      [[x0,y0],[x1,y0],[x1,y1],[x0,y1]].forEach(([x,y]) => { p(0,'VERTEX'); p(8,layer); p(10,f(x)); p(20,f(y)); p(30,0); });
+      p(0,'SEQEND'); p(8,layer);
+    };
+    const solid = (layer, x0, y0, x1, y1) => {
+      p(0,'SOLID'); p(8,layer);
+      p(10,f(x0)); p(20,f(y0)); p(30,0);
+      p(11,f(x1)); p(21,f(y0)); p(31,0);
+      p(12,f(x0)); p(22,f(y1)); p(32,0);
+      p(13,f(x1)); p(23,f(y1)); p(33,0);
+    };
+    if (contour){
+      for (const R of q.rects){
+        solid('QR_FILL', R.x * q.mod, (q.T - R.y - R.h) * q.mod, (R.x + R.w) * q.mod, (q.T - R.y) * q.mod);
+      }
+      for (const loop of contours(q.grid)){
+        p(0,'POLYLINE'); p(8,'QR_CONTOUR'); p(66,1); p(10,0); p(20,0); p(30,0); p(70,1);
+        for (const [x,y] of loop){ p(0,'VERTEX'); p(8,'QR_CONTOUR'); p(10,f(x * q.mod)); p(20,f((q.T - y) * q.mod)); p(30,0); }
+        p(0,'SEQEND'); p(8,'QR_CONTOUR');
+      }
+    } else for (const R of q.rects){
+      const x0 = R.x * q.mod, x1 = (R.x + R.w) * q.mod;
+      const y1 = (q.T - R.y) * q.mod, y0 = (q.T - R.y - R.h) * q.mod;
+      if (q.mode === 'fill'){
+        p(0,'SOLID'); p(8,'QR');
+        p(10,f(x0)); p(20,f(y0)); p(30,0);
+        p(11,f(x1)); p(21,f(y0)); p(31,0);
+        p(12,f(x0)); p(22,f(y1)); p(32,0);
+        p(13,f(x1)); p(23,f(y1)); p(33,0);
+      } else poly('QR', x0, y0, x1, y1);
+    }
+    if (q.frame) poly('FRAME', 0, 0, q.size, q.size);
+    p(0,'ENDSEC'); p(0,'EOF');
+    return L.join('\r\n') + '\r\n';
+  }
+
+  // ---------- contour tracing: one closed outline per black region (holes as their own loops) ----------
+  function contours(grid){
+    const n = grid.length, dark = (r,c) => r >= 0 && c >= 0 && r < n && c < n && grid[r][c];
+    const out = new Map(); const edges = [];
+    const add = (x0,y0,x1,y1) => { const e = {x0,y0,x1,y1,used:false}; edges.push(e); const k = x0+','+y0; (out.get(k) || out.set(k, []).get(k)).push(e); };
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++){
+      if (!grid[r][c]) continue;
+      if (!dark(r-1,c)) add(c,r,c+1,r);
+      if (!dark(r,c+1)) add(c+1,r,c+1,r+1);
+      if (!dark(r+1,c)) add(c+1,r+1,c,r+1);
+      if (!dark(r,c-1)) add(c,r+1,c,r);
+    }
+    const loops = [];
+    for (const start of edges){
+      if (start.used) continue;
+      start.used = true;
+      const pts = [[start.x0,start.y0]];
+      let e = start;
+      for (let guard = 0; guard < edges.length + 4; guard++){
+        pts.push([e.x1,e.y1]);
+        const dx = e.x1 - e.x0, dy = e.y1 - e.y0;
+        let cands = (out.get(e.x1+','+e.y1) || []).filter(o => !o.used || o === start);
+        if (!cands.length) break;
+        const rank = o => { const ox = o.x1 - o.x0, oy = o.y1 - o.y0;
+          if (ox === -dy && oy === dx) return 0; if (ox === dx && oy === dy) return 1; return 2; };
+        cands.sort((a,b) => rank(a) - rank(b));
+        const nx = cands[0];
+        if (nx === start) break;
+        nx.used = true; e = nx;
+      }
+      pts.pop();
+      // drop collinear points
+      const simp = pts.filter((pt,i) => {
+        const a = pts[(i - 1 + pts.length) % pts.length], b = pts[(i + 1) % pts.length];
+        return (pt[0]-a[0]) * (b[1]-pt[1]) - (pt[1]-a[1]) * (b[0]-pt[0]) !== 0;
+      });
+      if (simp.length >= 3) loops.push(simp);
+    }
+    return loops;
+  }
+
+  // ---------- SVG ----------
+  const f2 = v => (Math.round(v * 1000) / 1000).toString();
+  function svg(q, forPreview){
+    const Tt = q.T, sw = forPreview ? Math.max(0.06, Tt / 260) : 0.05;
+    const parts = q.rects.map(R => `<rect x="${R.x}" y="${R.y}" width="${R.w}" height="${R.h}"/>`).join('');
+    const style = q.mode === 'fill'
+      ? `fill="${forPreview ? 'var(--module)' : '#000'}"`
+      : `fill="none" stroke="${forPreview ? 'var(--laser)' : '#FF0000'}" stroke-width="${sw}"`;
+    const frame = q.frame ? `<rect x="0" y="0" width="${Tt}" height="${Tt}" fill="none" stroke="${forPreview ? 'var(--accent)' : '#0000FF'}" stroke-width="${sw}"/>` : '';
+    const dims = forPreview ? '' : ` width="${f2(q.size)}mm" height="${f2(q.size)}mm"`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Tt} ${Tt}"${dims} shape-rendering="crispEdges"><g ${style}>${parts}</g>${frame}</svg>`;
+  }
+
+  // ---------- render ----------
+  function empty(msgKey){
+    $('stage').innerHTML = '<div class="empty">' + t(msgKey) + '</div>';
+    $('stats').innerHTML = ''; setButtons(false);
+  }
+  function render(){
+    say('');
+    try {
+      if (typeof qrcode === 'undefined') throw new Error('lib');
+      current = build();
+    } catch (e){ current = null; empty(e.message === 'lib' ? 'libErr' : 'tooLong'); return; }
+    if (!current){ empty('empty'); return; }
+    const q = current;
+    $('stage').innerHTML = svg(q, true);
+    $('stats').innerHTML =
+      `<span>${t('stSize')} <b dir="ltr">${f2(q.size)}×${f2(q.size)} ${t('mm')}</b></span>` +
+      `<span>${t('stMod')} <b dir="ltr">${q.mod.toFixed(2)} ${t('mm')}</b></span>` +
+      `<span>${t('stMatrix')} <b dir="ltr">${q.n}×${q.n}</b></span>` +
+      `<span>${t('stShapes')} <b>${q.rects.length}</b></span>`;
+    if (q.mod < 0.5) say(t('small'), true);
+    setButtons(true);
+  }
+  function setButtons(on){ ['dlBtn','copyDxf'].forEach(id => $(id).disabled = !on); }
+  function say(x, err){ $('msg').textContent = x; $('msg').className = 'msg' + (err ? ' err' : ''); }
+
+  // ---------- zip (stored) ----------
+  const crcTable = (() => { const tb = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; tb[n] = c >>> 0; } return tb; })();
+  function crc32(b){ let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = crcTable[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zip(name, data){
+    const nb = new TextEncoder().encode(name), crc = crc32(data), sz = data.length;
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+    lh.setUint16(10,0,true); lh.setUint16(12,33,true); lh.setUint32(14,crc,true); lh.setUint32(18,sz,true); lh.setUint32(22,sz,true);
+    lh.setUint16(26,nb.length,true); lh.setUint16(28,0,true);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0,0x02014b50,true); cd.setUint16(4,20,true); cd.setUint16(6,20,true); cd.setUint16(8,0x0800,true); cd.setUint16(10,0,true);
+    cd.setUint16(12,0,true); cd.setUint16(14,33,true); cd.setUint32(16,crc,true); cd.setUint32(20,sz,true); cd.setUint32(24,sz,true);
+    cd.setUint16(28,nb.length,true);
+    const cdOff = 30 + nb.length + sz, cdSize = 46 + nb.length;
+    const eo = new DataView(new ArrayBuffer(22));
+    eo.setUint32(0,0x06054b50,true); eo.setUint16(8,1,true); eo.setUint16(10,1,true); eo.setUint32(12,cdSize,true); eo.setUint32(16,cdOff,true);
+    return new Blob([lh, nb, data, cd, nb, eo], {type:'application/zip'});
+  }
+
+  // ---------- saving ----------
+  function anchorSave(name, blob){
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  async function offer(name, blob){
+    const dl = await dlPromise;
+    if (!dl){ anchorSave(name, blob); say(t('downloaded')(name)); return; }
+    try { await dl.save({filename:name, data:blob}); say(t('saved')(name)); }
+    catch (e){
+      const code = e && e.code;
+      if (code === 'declined') say(t('declined'));
+      else if (code === 'rate_limited') say(t('rate'), true);
+      else say(t('noSave'), true);
+    }
+  }
+  const doDxf = async () => {
+    if (!current) return;
+    const text = dxf(current);
+    const dl = await dlPromise;
+    if (dl) offer('qr-code.zip', zip('qr-code.dxf', new TextEncoder().encode(text)));
+    else { anchorSave('qr-code.dxf', new Blob([text], {type:'application/dxf'})); say(t('downloaded')('qr-code.dxf')); }
+  };
+  const doContour = async () => {
+    if (!current) return;
+    const text = dxf(current, true);
+    const dl = await dlPromise;
+    if (dl) offer('qr-code-contour.zip', zip('qr-code-contour.dxf', new TextEncoder().encode(text)));
+    else { anchorSave('qr-code-contour.dxf', new Blob([text], {type:'application/dxf'})); say(t('downloaded')('qr-code-contour.dxf')); }
+  };
+  function png(q){
+    const target = q.size / 25.4 * 300;
+    const px = Math.max(10, Math.min(Math.round(target / q.T), Math.floor(8000 / q.T)));
+    const W = q.T * px;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = W;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, W);
+    ctx.fillStyle = '#000000';
+    for (const R of q.rects) ctx.fillRect(R.x * px, R.y * px, R.w * px, R.h * px);
+    return new Promise(res => cv.toBlob(res, 'image/png'));
+  }
+  const doPng = async () => {
+    if (!current) return;
+    const blob = await png(current);
+    if (blob) offer('qr-code.png', blob); else say(t('pngErr'), true);
+  };
+  const doSvg = () => { if (current) offer('qr-code.svg', new Blob([svg(current, false)], {type:'image/svg+xml'})); };
+  $('dlBtn').addEventListener('click', () => {
+    const v = (document.querySelector('input[name=fmt]:checked') || {}).value;
+    ({dxf:doDxf, contour:doContour, png:doPng, svg:doSvg}[v] || doDxf)();
+  });
+  $('copyDxf').addEventListener('click', async () => {
+    if (!current) return;
+    const sel = (document.querySelector('input[name=fmt]:checked') || {}).value;
+    const text = dxf(current, sel === 'contour');
+    try { await navigator.clipboard.writeText(text); say(t('copied')); }
+    catch {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch {}
+      ta.remove();
+      say(ok ? t('copied') : t('copyBlocked'), !ok);
+    }
+  });
+
+  // ---------- image decode ----------
+  const drop = $('drop');
+  drop.addEventListener('click', () => $('file').click());
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); $('file').click(); } });
+  $('file').addEventListener('change', e => { if (e.target.files[0]) decode(e.target.files[0]); e.target.value = ''; });
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) decode(f); });
+  window.addEventListener('paste', e => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (item){ e.preventDefault(); if (tab !== 'image') setTab('image'); decode(item.getAsFile()); }
+  });
+  function decode(file){
+    const msg = $('imgMsg');
+    msg.className = 'msg'; msg.textContent = t('reading');
+    if (typeof jsQR === 'undefined'){ msg.className = 'msg err'; msg.textContent = t('scanLib'); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let found = null;
+      for (const max of [1600, 1000, 600, 2400]){
+        const s = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d', {willReadFrequently:true});
+        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h); ctx.drawImage(img, 0, 0, w, h);
+        const d = ctx.getImageData(0, 0, w, h);
+        found = jsQR(d.data, w, h, {inversionAttempts:'attemptBoth'});
+        if (found && found.data) break;
+      }
+      if (!found || !found.data){ msg.className = 'msg err'; msg.textContent = t('notFound'); return; }
+      $('txt').value = found.data;
+      $('decodedNote').textContent = t('decoded');
+      msg.textContent = '';
+      setTab('text');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); msg.className = 'msg err'; msg.textContent = t('badImg'); };
+    img.src = url;
+  }
+
+  let saved = 'he';
+  try { saved = localStorage.getItem('qrdxf-lang') || 'he'; } catch {}
+  applyLang(saved === 'en' ? 'en' : 'he');
+  window.addEventListener('load', render);
+})();
+</script>
+</body>
+</html>
